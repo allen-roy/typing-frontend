@@ -1,1 +1,36 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --bg: #1e1e2e;
+  --text: #cdd6f4;
+  --muted: #6c7086;
+  --correct: #a6e3a1;
+  --wrong: #f38ba8;
+  --wrong-bg: rgba(243, 139, 168, 0.15);
+  --accent: #89b4fa;
+}
+
+[data-theme='light'] {
+  --bg: #fafafa;
+  --text: #1f2937;
+  --muted: #9ca3af;
+  --correct: #16a34a;
+  --wrong: #dc2626;
+  --wrong-bg: #fee2e2;
+  --accent: #2563eb;
+}
+
+[data-theme='ocean'] {
+  --bg: #0b2530;
+  --text: #d6f1f5;
+  --muted: #5e8a96;
+  --correct: #5eead4;
+  --wrong: #fb7185;
+  --wrong-bg: rgba(251, 113, 133, 0.15);
+  --accent: #38bdf8;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: sans-serif;
+}
