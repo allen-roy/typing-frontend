@@ -1,3 +1,4 @@
+import { MatrixRain } from './matrix-rain';
 import {
   Component, signal, computed, effect, viewChild, ElementRef, OnDestroy,
 } from '@angular/core';
@@ -37,9 +38,11 @@ function loadTheme(): Theme {
 @Component({
   selector: 'app-typing-test',
   standalone: true,
+  imports: [MatrixRain],
   template: `
     <div class="typing-test" (click)="typingInput.focus()">
-      <div class="controls">
+    <app-matrix-rain />
+    <div class="controls">
         @for (m of modes; track m) {
           <button type="button" [class.active]="config().mode === m"
                   (click)="setMode(m)">{{ m }}</button>
@@ -181,6 +184,7 @@ export class TypingTest implements OnDestroy {
   });
 
   private display = viewChild<ElementRef<HTMLElement>>('display');
+  private rain = viewChild.required(MatrixRain);
   private tick = signal(Date.now());
   private clock = computed(() => this.finishedAt() ?? this.tick());
   private timerId = setInterval(() => this.onTick(), 250);
@@ -240,11 +244,18 @@ export class TypingTest implements OnDestroy {
   }
 
   setMode(mode: Mode): void {
+  const apply = () => {
     const amount = mode === 'dev' ? 0 : OPTIONS[mode][0]!;
     this.config.update(c => ({ ...c, mode, amount }));
     this.restart();
+  };
+  if (mode === 'dev' && this.config().mode !== 'dev') {
+    this.rain().play(1400);
+    setTimeout(apply, 450);
+  } else {
+    apply();
   }
-
+}
   setAmount(amount: number): void {
     this.config.update(c => ({ ...c, amount }));
     this.restart();
