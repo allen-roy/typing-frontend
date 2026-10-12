@@ -3,7 +3,7 @@ import {
 } from '@angular/core';
 import {
   createTestState, handleKeystroke, handleBackspace, skipIndent,
-  isTestComplete, calculateWPM, calculateAccuracy,
+  isTestComplete, calculateWPM, calculateAccuracy, wpmSeries,
 } from './engine';
 import { generateText } from './words';
 import { LANGS, Lang, randomSnippet } from './snippets';
@@ -63,18 +63,51 @@ function loadTheme(): Theme {
         }
       </div>
 
-      @if (timeLeft() !== null) {
-        <p class="timer">{{ timeLeft() }}s</p>
+      @if (isTouch) {
+        <p class="hint">TypeEngine works best with a desktop keyboard.</p>
       }
 
-      <div #display class="text-display" [class.dev]="config().mode === 'dev'">
-        @for (char of state().text; track $index) {
-          <span
-            [class.correct]="$index < state().currentIndex && state().typed[$index] === char"
-            [class.wrong]="$index < state().currentIndex && state().typed[$index] !== char"
-            [class.untyped]="$index >= state().currentIndex"
-            [class.current]="$index === state().currentIndex"
-          >{{ show(char) }}</span>
+      <div class="stage" [class.dev]="config().mode === 'dev'">
+        @if (result(); as r) {
+          <div class="results">
+            <p class="label">{{ r.label }}</p>
+            <div class="big-stats">
+              <div><span class="big">{{ r.wpm }}</span><span class="cap">wpm</span></div>
+              <div><span class="big">{{ r.accuracy }}%</span><span class="cap">accuracy</span></div>
+            </div>
+            <div class="small-stats">
+              <span>correct <b>{{ r.correct }}</b></span>
+              <span>wrong <b>{{ r.wrong }}</b></span>
+              <span>time <b>{{ r.seconds }}s</b></span>
+            </div>
+            <svg class="graph" viewBox="0 0 600 140" preserveAspectRatio="none">
+              <polyline [attr.points]="graph().points" vector-effect="non-scaling-stroke" />
+            </svg>
+            <div class="graph-labels">
+              <span>0s</span>
+              <span>peak {{ graph().max }} wpm</span>
+              <span>{{ graph().seconds }}s</span>
+            </div>
+            <button type="button" class="restart" (click)="restart()">Restart (Enter or Esc)</button>
+          </div>
+        } @else {
+          @if (timeLeft() !== null) {
+            <p class="timer">{{ timeLeft() }}s</p>
+          }
+          <div #display class="text-display" [class.dev]="config().mode === 'dev'">
+            @for (char of state().text; track $index) {
+              <span
+                [class.correct]="$index < state().currentIndex && state().typed[$index] === char"
+                [class.wrong]="$index < state().currentIndex && state().typed[$index] !== char"
+                [class.untyped]="$index >= state().currentIndex"
+                [class.current]="$index === state().currentIndex"
+              >{{ show(char) }}</span>
+            }
+          </div>
+          <div class="stats">
+            <p>WPM: {{ wpm() }}</p>
+            <p>Accuracy: {{ accuracy() }}%</p>
+          </div>
         }
       </div>
 
@@ -89,27 +122,21 @@ function loadTheme(): Theme {
         autofocus
         (keydown)="onKeydown($event)"
       />
-
-      <div class="stats">
-        <p>WPM: {{ wpm() }}</p>
-        <p>Accuracy: {{ accuracy() }}%</p>
-      </div>
-
-      @if (finished()) {
-        <div class="results">
-          <strong>Done!</strong>
-          <button type="button" (click)="restart()">Restart (Esc)</button>
-        </div>
-      }
     </div>
   `,
   styles: [`
-    .typing-test { max-width: 760px; margin: 40px auto; padding: 24px; cursor: text; }
+    :host { display: block; width: 100%; max-width: 760px; }
+    .typing-test { padding: 24px; cursor: text; box-sizing: border-box; }
     .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
     .controls .spacer { flex: 1; }
     .controls .divider { width: 1px; height: 18px; background: var(--muted); }
     button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
     button.active { color: var(--accent); }
+    .hint { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+
+    .stage { min-height: 190px; }
+    .stage.dev { min-height: 350px; }
+
     .timer { color: var(--accent); font-size: 28px; margin: 0 0 8px; }
     .text-display {
       position: relative; height: 130px; overflow: hidden;
@@ -122,13 +149,25 @@ function loadTheme(): Theme {
     .current { box-shadow: -2px 0 0 var(--accent); }
     .typing-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
     .stats { display: flex; gap: 24px; margin-top: 24px; font-size: 18px; }
-    .results { margin-top: 16px; display: flex; gap: 16px; align-items: center; }
+
+    .results .label { color: var(--muted); margin: 0 0 8px; }
+    .big-stats { display: flex; gap: 48px; margin-bottom: 12px; }
+    .big { font-size: 56px; color: var(--accent); line-height: 1; margin-right: 8px; }
+    .cap { color: var(--muted); }
+    .small-stats { display: flex; gap: 24px; color: var(--muted); margin-bottom: 16px; flex-wrap: wrap; }
+    .small-stats b { color: var(--text); font-weight: normal; }
+    .graph { width: 100%; height: 100px; display: block; }
+    .graph polyline { fill: none; stroke: var(--accent); stroke-width: 2; }
+    .graph-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .restart { margin-top: 16px; color: var(--accent); }
   `]
 })
 export class TypingTest implements OnDestroy {
   modes: Mode[] = ['timed', 'words', 'dev'];
   langs = LANGS;
   themes = THEMES;
+  isTouch =
+    typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
   config = signal<Config>({ mode: 'timed', amount: 30, lang: 'javascript' });
   theme = signal<Theme>(loadTheme());
@@ -141,7 +180,7 @@ export class TypingTest implements OnDestroy {
     return m === 'dev' ? [] : OPTIONS[m];
   });
 
-  private display = viewChild.required<ElementRef<HTMLElement>>('display');
+  private display = viewChild<ElementRef<HTMLElement>>('display');
   private tick = signal(Date.now());
   private clock = computed(() => this.finishedAt() ?? this.tick());
   private timerId = setInterval(() => this.onTick(), 250);
@@ -153,6 +192,39 @@ export class TypingTest implements OnDestroy {
     if (s.mode !== 'timed' || s.duration === undefined) return null;
     if (s.startTime === null) return s.duration;
     return Math.max(0, Math.ceil((s.duration * 1000 - (this.clock() - s.startTime)) / 1000));
+  });
+
+  result = computed(() => {
+    const end = this.finishedAt();
+    const s = this.state();
+    if (end === null || s.startTime === null) return null;
+    const c = this.config();
+    const correct = s.keystrokes.filter(k => k.correct).length;
+    return {
+      wpm: Math.round(calculateWPM(s, end)),
+      accuracy: Math.round(calculateAccuracy(s)),
+      correct,
+      wrong: s.keystrokes.length - correct,
+      seconds: ((end - s.startTime) / 1000).toFixed(1),
+      label:
+        c.mode === 'dev' ? `dev · ${c.lang}`
+        : c.mode === 'timed' ? `timed · ${c.amount}s`
+        : `words · ${c.amount}`,
+    };
+  });
+
+  graph = computed(() => {
+    const end = this.finishedAt();
+    if (end === null) return { points: '', max: 0, seconds: 0 };
+    const series = wpmSeries(this.state(), end);
+    const max = Math.max(1, ...series);
+    const W = 600, H = 140;
+    const pts = series.map((v, i) => {
+      const x = series.length === 1 ? W / 2 : (i / (series.length - 1)) * W;
+      const y = H - (v / max) * H;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    return { points: pts.join(' '), max: Math.round(max), seconds: series.length };
   });
 
   constructor() {
@@ -186,7 +258,8 @@ export class TypingTest implements OnDestroy {
   restart(): void {
     this.state.set(newTest(this.config()));
     this.finishedAt.set(null);
-    this.display().nativeElement.scrollTop = 0;
+    const box = this.display();
+    if (box) box.nativeElement.scrollTop = 0;
   }
 
   onKeydown(event: KeyboardEvent): void {
@@ -204,7 +277,15 @@ export class TypingTest implements OnDestroy {
       return;
     }
 
-    if (this.finished()) return;
+    if (this.finished()) {
+      // Short guard so a habitual Enter right at the end doesn't skip the results.
+      const sinceFinish = Date.now() - (this.finishedAt() ?? 0);
+      if (event.key === 'Enter' && sinceFinish > 500) {
+        event.preventDefault();
+        this.restart();
+      }
+      return;
+    }
 
     if (event.key === 'Backspace') {
       event.preventDefault();
@@ -247,9 +328,9 @@ export class TypingTest implements OnDestroy {
   }
 
   private scrollToCurrent(): void {
-    const box = this.display().nativeElement;
-    const cur = box.querySelector<HTMLElement>('.current');
-    if (cur) box.scrollTop = Math.max(0, cur.offsetTop - LINE_PX);
+    const box = this.display()?.nativeElement;
+    const cur = box?.querySelector<HTMLElement>('.current');
+    if (box && cur) box.scrollTop = Math.max(0, cur.offsetTop - LINE_PX);
   }
 
   ngOnDestroy(): void {

@@ -8,6 +8,20 @@
   color: var(--text);
 }
 
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 80vh;
+  min-height: 80dvh;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .logo .accent,
 .logo .cursor { color: var(--accent); }
 
