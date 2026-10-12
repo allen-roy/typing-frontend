@@ -67,3 +67,13 @@ export function calculateAccuracy(state: TypingEngineState): number {
   const correct = state.keystrokes.filter(k => k.correct).length;
   return (correct / state.keystrokes.length) * 100;
 }
+
+export function skipIndent(state: TypingEngineState): TypingEngineState {
+  let i = state.currentIndex;
+  const typed = state.typed.slice(0, i);
+  while (state.text[i] === ' ') {
+    typed.push(' ');
+    i++;
+  }
+  return { ...state, currentIndex: i, typed };
+}

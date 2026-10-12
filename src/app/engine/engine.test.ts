@@ -7,6 +7,7 @@ import {
   isTestComplete,
   calculateWPM,
   calculateAccuracy,
+  skipIndent,
 } from './engine.js';
 
 // Types each character of `chars` in order, one second apart.
@@ -105,5 +106,21 @@ describe('calculateAccuracy', () => {
 
   it('0 when nothing typed', () => {
     expect(calculateAccuracy(createTestState('abc', 'words', undefined, 1))).toBe(0);
+  });
+});
+
+describe('skipIndent', () => {
+  it('fills leading spaces after a newline without recording keystrokes', () => {
+    let s = createTestState('a\n  b', 'words', undefined, 0);
+    s = typeAll(s, 'a\n');
+    s = skipIndent(s);
+    expect(s.currentIndex).toBe(4);
+    expect(s.typed).toEqual(['a', '\n', ' ', ' ']);
+    expect(s.keystrokes.length).toBe(2);
+  });
+
+  it('does nothing when the next character is not a space', () => {
+    const s = typeAll(createTestState('ab', 'words', undefined, 0), 'a');
+    expect(skipIndent(s).currentIndex).toBe(1);
   });
 });
