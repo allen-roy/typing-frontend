@@ -13,6 +13,8 @@
 
 .logo .cursor { animation: blink 1s steps(1) infinite; }
 
+.logo:hover .cursor { animation: blink 1s steps(1) infinite; }
+
 .tagline { margin: 8px 0 0; color: var(--muted); font-size: 15px; }
 
 @keyframes blink { 50% { opacity: 0; } }    
