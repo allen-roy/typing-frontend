@@ -8,6 +8,7 @@ import {
   calculateWPM,
   calculateAccuracy,
   skipIndent,
+  wpmSeries,
 } from './engine.js';
 
 // Types each character of `chars` in order, one second apart.
@@ -122,5 +123,19 @@ describe('skipIndent', () => {
   it('does nothing when the next character is not a space', () => {
     const s = typeAll(createTestState('ab', 'words', undefined, 0), 'a');
     expect(skipIndent(s).currentIndex).toBe(1);
+  });
+});
+
+describe('wpmSeries', () => {
+  it('gives cumulative WPM for each second', () => {
+    const s = typeAll(createTestState('abcdefgh', 'words', undefined, 1), 'abcde');
+    const series = wpmSeries(s, 5000);
+    expect(series.length).toBe(5);
+    expect(series[0]).toBeCloseTo(24); // 2 correct by 1s: 2/5 / (1/60)
+    expect(series[4]).toBeCloseTo(12); // 5 correct by 5s: 5/5 / (5/60)
+  });
+
+  it('is empty before the test starts', () => {
+    expect(wpmSeries(createTestState('abc', 'words', undefined, 1), 1000)).toEqual([]);
   });
 });

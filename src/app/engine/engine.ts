@@ -77,3 +77,16 @@ export function skipIndent(state: TypingEngineState): TypingEngineState {
   }
   return { ...state, currentIndex: i, typed };
 }
+
+export function wpmSeries(state: TypingEngineState, endTime: number): number[] {
+  if (state.startTime === null) return [];
+  const start = state.startTime;
+  const seconds = Math.max(1, Math.ceil((endTime - start) / 1000));
+  const series: number[] = [];
+  for (let s = 1; s <= seconds; s++) {
+    const cutoff = start + s * 1000;
+    const correct = state.keystrokes.filter(k => k.correct && k.timestamp <= cutoff).length;
+    series.push(correct / 5 / (s / 60));
+  }
+  return series;
+}
